@@ -1,112 +1,85 @@
 package com.example.coffee_search.service;
 
 import java.io.BufferedReader;
- import java.io.IOException;
- import java.io.InputStream;
- import java.io.InputStreamReader;
- import java.net.URL;
- import java.net.URLConnection;
- import java.util.HashMap;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI; // 新增
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 
- import org.jsoup.Jsoup;
- import org.jsoup.nodes.Document;
- import org.jsoup.nodes.Element;
- import org.jsoup.select.Elements;
-import org.springframework.stereotype.Service;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
- public class GoogleQuery 
- {
-     public String searchKeyword;
-     public String url;
-     public String content;
+public class GoogleQuery {
+    public String searchKeyword;
+    public String url;
+    public String content;
 
-     public GoogleQuery(String searchKeyword)
-     {
-         this.searchKeyword = searchKeyword;
-         try 
-         {
-             // This part has been specially handled for Chinese keyword processing. 
-             // You can comment out the following two lines 
-             // and use the line of code in the lower section. 
-             // Also, consider why the results might be incorrect 
-             // when entering Chinese keywords.
-             String encodeKeyword=java.net.URLEncoder.encode(searchKeyword,"utf-8");
-             this.url = "https://www.google.com/search?q="+encodeKeyword+"&oe=utf8&num=20";
+    public GoogleQuery(String searchKeyword) {
+        this.searchKeyword = searchKeyword;
+        try {
+            // 修正編碼寫法
+            String encodeKeyword = URLEncoder.encode(searchKeyword, StandardCharsets.UTF_8);
+            this.url = "https://www.google.com/search?q=" + encodeKeyword + "&oe=utf8&num=20";
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
 
-             // this.url = "https://www.google.com/search?q="+searchKeyword+"&oe=utf8&num=20";
-         }
-         catch (Exception e)
-         {
-             System.out.println(e.getMessage());
-         }
-     }
+    private String fetchContent() throws IOException {
+        StringBuilder retVal = new StringBuilder(); // 優化字串串接
 
-     private String fetchContent() throws IOException
-     {
-         String retVal = "";
+        // 修正 new URL() 過時問題
+        URL u = URI.create(url).toURL();
+        
+        URLConnection conn = u.openConnection();
+        conn.setRequestProperty("User-agent", "Chrome/107.0.5304.107");
+        
+        try (InputStream in = conn.getInputStream();
+             InputStreamReader inReader = new InputStreamReader(in, StandardCharsets.UTF_8);
+             BufferedReader bufReader = new BufferedReader(inReader)) {
+            
+            String line;
+            while ((line = bufReader.readLine()) != null) {
+                retVal.append(line);
+            }
+        }
+        return retVal.toString();
+    }
 
-         URL u = new URL(url);
-         URLConnection conn = u.openConnection();
-         //set HTTP header
-         conn.setRequestProperty("User-agent", "Chrome/107.0.5304.107");
-         InputStream in = conn.getInputStream();
+    public HashMap<String, String> query() throws IOException {
+        if (content == null) {
+            content = fetchContent();
+        }
 
-         InputStreamReader inReader = new InputStreamReader(in, "utf-8");
-         BufferedReader bufReader = new BufferedReader(inReader);
-         String line = null;
+        HashMap<String, String> retVal = new HashMap<>(); // 使用鑽石運算子
 
-         while((line = bufReader.readLine()) != null)
-         {
-             retVal += line;
-         }
-         return retVal;
-     }
+        Document doc = Jsoup.parse(content);
+        Elements lis = doc.select("div.kCrYT"); // 稍微簡化 select 寫法
 
-     public HashMap<String, String> query() throws IOException
-     {
-         if(content == null)
-         {
-             content = fetchContent();
-         }
+        for (Element li : lis) {
+            try {
+                // 加強空值檢查，避免 IndexOutOfBoundsException
+                Element aTag = li.select("a").first();
+                if (aTag != null) {
+                    String citeUrl = aTag.attr("href").replace("/url?q=", "");
+                    String title = aTag.select(".vvjwJb").text();
 
-         HashMap<String, String> retVal = new HashMap<String, String>();
-
-         /* 
-          * some Jsoup source
-          * https://jsoup.org/apidocs/org/jsoup/nodes/package-summary.html
-          * https://www.1ju.org/jsoup/jsoup-quick-start
-          */
-
-         //using Jsoup analyze html string
-         Document doc = Jsoup.parse(content);
-
-         //select particular element(tag) which you want 
-         Elements lis = doc.select("div");
-         lis = lis.select(".kCrYT");
-
-         for(Element li : lis)
-         {
-             try 
-             {
-                 String citeUrl = li.select("a").get(0).attr("href").replace("/url?q=", "");
-                 String title = li.select("a").get(0).select(".vvjwJb").text();
-
-                 if(title.equals("")) 
-                 {
-                     continue;
-                 }
-
-                 System.out.println("Title: " + title + " , url: " + citeUrl);
-
-                 //put title and pair into HashMap
-                 retVal.put(title, citeUrl);
-
-             } catch (IndexOutOfBoundsException e) 
-             {
- //				e.printStackTrace();
-             }
-         }
-
-         return retVal;
-     }
- }
+                    if (!title.isEmpty()) {
+                        System.out.println("Title: " + title + " , url: " + citeUrl);
+                        retVal.put(title, citeUrl);
+                    }
+                }
+            } catch (Exception e) {
+                // 忽略解析錯誤的項目
+            }
+        }
+        return retVal;
+    }
+}
