@@ -1,5 +1,8 @@
 package com.example.coffee_search.service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -17,39 +20,80 @@ public class TranslationService {
     private final String TRANSLATE_API_URL = "https://translation.googleapis.com/language/translate/v2";
 
     /**
-     * 將輸入文字翻譯為英文
+     * 偵測輸入文字的語言
      * @param text 原始文字
-     * @return 翻譯後的英文文字，若失敗則回傳原文
+     * @return 偵測到的語言代碼 (例如 "zh-TW", "en")，若失敗則回傳 "en"
      */
-    public String translateToEnglish(String text) {
+    public String detectLanguage(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return "en";
+        }
+        try {
+            // 透過翻譯 API 的副作用來取得 detectedSourceLanguage
+            JsonNode firstTranslation = fetchTranslationNode(text, "en");
+            if (firstTranslation != null && firstTranslation.has("detectedSourceLanguage")) {
+                String detectedLang = firstTranslation.get("detectedSourceLanguage").asText();
+                
+                // [修正] 通用處理所有 -Latn 結尾的語言代碼
+                // 例如: bg-Latn -> bg, ar-Latn -> ar
+                // 避免 "Bad language pair" 錯誤
+                if (detectedLang != null && detectedLang.endsWith("-Latn")) {
+                    return detectedLang.split("-")[0];
+                }
+                
+                return detectedLang;
+            }
+        } catch (Exception e) {
+            System.out.println("Detect language failed (fallback to en): " + e.getMessage());
+        }
+        return "en"; // 預設回傳英文
+    }
+
+    /**
+     * 將輸入文字翻譯為指定語言
+     * @param text 原始文字
+     * @param targetLang 目標語言代碼 (例如 "zh-TW")
+     * @return 翻譯後的文字
+     */
+    public String translate(String text, String targetLang) {
         if (text == null || text.trim().isEmpty()) {
             return "";
         }
-
         try {
-            RestTemplate restTemplate = new RestTemplate();
-            // 構建請求 URL: 來源自動偵測，目標設為英文 (en)
-            String url = TRANSLATE_API_URL + "?q=" + text + "&target=en&key=" + apiKey;
-
-            // 發送請求
-            String response = restTemplate.getForObject(url, String.class);
-            
-            // 解析 JSON 取出翻譯結果
-            // 回傳結構通常為: { "data": { "translations": [ { "translatedText": "..." } ] } }
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(response);
-            
-            if (root.has("data") && root.get("data").has("translations")) {
-                JsonNode translations = root.get("data").get("translations");
-                if (translations.isArray() && translations.size() > 0) {
-                    return translations.get(0).get("translatedText").asText();
-                }
+            JsonNode firstTranslation = fetchTranslationNode(text, targetLang);
+            if (firstTranslation != null && firstTranslation.has("translatedText")) {
+                return firstTranslation.get("translatedText").asText();
             }
         } catch (Exception e) {
-            // 簡單的錯誤處理：若 API 呼叫失敗 (例如 Quota 超過或 Key 無效)，印出 Log 並回傳原文
-            System.err.println("Translation API failed: " + e.getMessage());
-            return text;
+            System.err.println("Translation failed: " + e.getMessage());
         }
         return text;
+    }
+
+    // 輔助方法：發送 API 請求並解析 JSON
+    private JsonNode fetchTranslationNode(String text, String targetLang) throws Exception {
+        RestTemplate restTemplate = new RestTemplate();
+        
+        // [修正] 使用 URLEncoder 對參數進行編碼，解決中文和空白造成的亂碼/錯誤問題
+        // 這是最關鍵的一步，如果沒有編碼，含有特殊字元的請求會直接失敗
+        String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
+        String encodedTargetLang = URLEncoder.encode(targetLang, StandardCharsets.UTF_8);
+
+        // 組合 URL
+        String url = TRANSLATE_API_URL + "?q=" + encodedText + "&target=" + encodedTargetLang + "&key=" + apiKey;
+
+        // 發送請求
+        String response = restTemplate.getForObject(url, String.class);
+        
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response);
+
+        if (root.has("data") && root.get("data").has("translations")) {
+            JsonNode translations = root.get("data").get("translations");
+            if (translations.isArray() && translations.size() > 0) {
+                return translations.get(0);
+            }
+        }
+        return null;
     }
 }

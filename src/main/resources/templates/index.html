@@ -5,84 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background-color: #ffffff;
-            padding: 30px 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            width: 90%;
-        }
-        h2 {
-            text-align: center;
-            color: #4a3b32; /* Coffee color */
-            margin-bottom: 25px;
-        }
-        .search-box {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            box-sizing: border-box;
-            transition: border-color 0.3s;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #007BFF;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #6f4e37; /* Coffee bean color */
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #5a3e2b;
-        }
-        #apiResult {
-            margin-top: 25px;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            background: #fff;
-            border-bottom: 1px solid #eee;
-            padding: 10px 0;
-        }
-        li a {
-            text-decoration: none;
-            color: #007BFF;
-            font-weight: 500;
-        }
-        li a:hover {
-            text-decoration: underline;
-        }
-        .loading {
-            text-align: center;
-            color: #666;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: #ffffff; padding: 30px 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); max-width: 500px; width: 90%; }
+        h2 { text-align: center; color: #4a3b32; margin-bottom: 25px; }
+        .search-box { display: flex; flex-direction: column; gap: 15px; }
+        input[type="text"], select { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; transition: border-color 0.3s; }
+        input[type="text"]:focus, select:focus { outline: none; border-color: #007BFF; }
+        button { width: 100%; padding: 12px; background-color: #6f4e37; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #5a3e2b; }
+        #apiResult { margin-top: 25px; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #fff; border-bottom: 1px solid #eee; padding: 10px 0; }
+        li a { text-decoration: none; color: #007BFF; font-weight: 500; }
+        li a:hover { text-decoration: underline; }
+        .loading { text-align: center; color: #666; }
     </style>
 </head>
 <body>
@@ -91,6 +27,10 @@
     <h2>☕ Coffee Search Engine</h2>
 
     <div class="search-box">
+        <select id="keywordSelect">
+            <option value="" disabled selected>載入選項中...</option>
+        </select>
+
         <input type="text" id="apiInput" placeholder="請輸入關鍵字 (例如: 拿鐵, 手沖)...">
         <button type="button" onclick="callGoogleApi()">Search</button>
     </div>
@@ -99,8 +39,27 @@
 </div>
 
 <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch('/api/keywords')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('keywordSelect');
+                select.innerHTML = ''; 
+                
+                data.forEach(item => {
+                    const option = document.createElement('option');
+                    // 修正: 讀取後端的 searchTerm 欄位
+                    option.value = item.searchTerm; 
+                    option.textContent = item.name;
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => console.error("無法載入關鍵字:", err));
+    });
+
     function callGoogleApi() {
         const query = document.getElementById('apiInput').value;
+        const keywordValue = document.getElementById('keywordSelect').value;
         const resultContainer = document.getElementById('apiResult');
 
         if (!query) {
@@ -108,12 +67,11 @@
             return;
         }
 
-        // 顯示讀取中狀態
         resultContainer.innerHTML = '<div class="loading">搜尋中，正在為您翻譯並檢索...</div>';
 
-        // 準備 Form Data
         const params = new URLSearchParams();
         params.append('apiInput', query);
+        params.append('keywordValue', keywordValue);
 
         fetch('/api/coffee_search', {
             method: 'POST',
@@ -129,25 +87,18 @@
             return response.json();
         })
         .then(data => {
-            resultContainer.innerHTML = ''; // 清空 Loading
-
-            const keys = Object.keys(data);
-            if (keys.length === 0) {
+            resultContainer.innerHTML = '';
+            if (data.length === 0) {
                 resultContainer.innerHTML = '<p style="text-align:center;">找不到相關結果。</p>';
                 return;
             }
-
-            // 建立結果列表
             const ul = document.createElement('ul');
-            keys.forEach(title => {
-                const link = data[title];
+            data.forEach(item => {
                 const li = document.createElement('li');
                 const a = document.createElement('a');
-                
-                a.href = link;
-                a.textContent = title;
+                a.href = item.link;
+                a.textContent = item.title;
                 a.target = '_blank';
-                
                 li.appendChild(a);
                 ul.appendChild(li);
             });
@@ -159,7 +110,6 @@
         });
     }
     
-    // 讓 Enter 鍵也能觸發搜尋
     document.getElementById("apiInput").addEventListener("keypress", function(event) {
         if (event.key === "Enter") {
             callGoogleApi();
