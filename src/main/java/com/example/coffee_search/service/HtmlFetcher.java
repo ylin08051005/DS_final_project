@@ -10,27 +10,29 @@ import java.io.IOException;
 public class HtmlFetcher {
 
     public String fetchContent(String url) {
+        if (url == null || url.isEmpty()) {
+            return "";
+        }
         try {
             // 使用 Jsoup 連線
+            // timeout(5000) 設定 5 秒超時，避免卡住
+            // get() 會自動解析 HTML 的 Content-Type 與 meta charset，自動轉成正確的編碼
             Document doc = Jsoup.connect(url)
-                    // 1. 設定更完整的 User-Agent (偽裝成最新的 Chrome)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    // 2. 設定 Referrer (假裝是從 Google 搜尋點進去的)
-                    .referrer("http://www.google.com")
-                    // 3. 設定逾時為 20 秒 (原本 5 秒太短容易 timeout)
-                    .timeout(20000)
-                    // 4. 即使遇到 404/500/403 錯誤也不要拋出例外，嘗試讀取頁面文字
-                    .ignoreHttpErrors(true)
-                    // 5. 允許重新導向
-                    .followRedirects(true)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                    .timeout(5000) 
                     .get();
-            
-            // doc.text() 會自動移除 HTML標籤，只留下可閱讀的內文
+
+            // doc.text() 會移除所有 HTML標籤，只留下純文字
+            // 這正是 Boyer-Moore 需要的輸入
             return doc.text();
-            
+
         } catch (IOException e) {
-            // 若抓取失敗 (例如 404 或連線逾時)，回傳空字串，不影響流程
-            System.err.println("無法抓取網頁內容: " + url + " (" + e.getMessage() + ")");
+            // 爬蟲經常會失敗 (403 Forbidden, 404, Timeout)，這是正常的
+            // 印出錯誤以便除錯，但回傳空字串讓流程繼續
+            System.err.println("爬取失敗 [" + url + "]: " + e.getMessage());
+            return "";
+        } catch (Exception e) {
+            System.err.println("爬蟲未預期錯誤: " + e.getMessage());
             return "";
         }
     }

@@ -21,7 +21,7 @@
             background-image: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* 改為靠上，避免內容多時被切掉 */
+            align-items: flex-start;
             min-height: 100vh;
             margin: 0;
             padding: 40px 20px;
@@ -32,7 +32,7 @@
             padding: 40px;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            max-width: 700px;
+            max-width: 800px;
             width: 100%;
             transition: transform 0.3s ease;
         }
@@ -49,15 +49,15 @@
             gap: 10px;
         }
 
+        /* 修改後的搜尋區塊樣式 */
         .search-box {
-            display: grid;
-            gap: 15px;
+            display: flex; /* 改用 Flex 讓輸入框和按鈕並排 */
+            gap: 10px;
             margin-bottom: 30px;
         }
 
-        /* 輸入框樣式優化 */
-        select, input[type="text"] {
-            width: 100%;
+        input[type="text"] {
+            flex: 1; /* 輸入框佔據剩餘空間 */
             padding: 15px;
             border: 2px solid #eee;
             border-radius: 12px;
@@ -68,17 +68,18 @@
             color: #333;
         }
 
-        select:focus, input[type="text"]:focus {
+        input[type="text"]:focus {
             outline: none;
             border-color: var(--secondary-color);
             background-color: #fff;
             box-shadow: 0 0 0 4px rgba(111, 78, 55, 0.1);
         }
 
-        /* 按鈕樣式優化 */
+        /* 按鈕樣式 */
         button {
-            width: 100%;
-            padding: 15px;
+            width: auto; /* 自動寬度 */
+            min-width: 120px;
+            padding: 15px 25px;
             background-color: var(--primary-color);
             color: white;
             border: none;
@@ -88,6 +89,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(111, 78, 55, 0.2);
+            white-space: nowrap;
         }
 
         button:hover {
@@ -129,7 +131,7 @@
 
         .result-content {
             flex: 1;
-            min-width: 0; /* 防止文字溢出容器 */
+            min-width: 0;
             margin-right: 15px;
         }
 
@@ -161,9 +163,19 @@
             border-radius: 20px;
             font-weight: 700;
             font-size: 0.9rem;
-            min-width: 60px;
+            min-width: 80px; /* 稍微加寬 */
             text-align: center;
             border: 1px solid #c8e6c9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .score-label {
+            font-size: 0.7rem;
+            color: #1b5e20;
+            margin-bottom: 2px;
         }
 
         /* 載入動畫 */
@@ -187,6 +199,8 @@
         @media (max-width: 600px) {
             .container { padding: 20px; }
             h2 { font-size: 1.8rem; }
+            .search-box { flex-direction: column; }
+            button { width: 100%; }
         }
     </style>
 </head>
@@ -196,49 +210,20 @@
     <h2>☕ Coffee Search Engine</h2>
 
     <div class="search-box">
-        <select id="keywordSelect">
-            <option value="" disabled selected>正在載入熱門關鍵字...</option>
-        </select>
-
-        <input type="text" id="apiInput" placeholder="輸入關鍵字 (例如: 拿鐵, 烘焙)..." />
-        <button type="button" onclick="callGoogleApi()">開始搜尋 (Search)</button>
+        <!-- 移除了 select，只保留輸入框與按鈕 -->
+        <input type="text" id="apiInput" placeholder="輸入關鍵字 (例如: 拿鐵, 烘焙, delicious coffee)..." autofocus />
+        <button onclick="callGoogleApi()">搜尋</button>
     </div>
 
     <div id="apiResult"></div>
 </div>
 
 <script>
-    // 頁面載入時取得關鍵字
-    document.addEventListener("DOMContentLoaded", function() {
-        fetch('/api/keywords')
-            .then(response => response.json())
-            .then(data => {
-                const select = document.getElementById('keywordSelect');
-                select.innerHTML = ''; 
-                
-                // 加入預設選項
-                const defaultOption = document.createElement('option');
-                defaultOption.value = "coffee";
-                defaultOption.textContent = "選擇加權關鍵字 (預設: Coffee)";
-                select.appendChild(defaultOption);
-
-                data.forEach(item => {
-                    const option = document.createElement('option');
-                    option.value = item.searchTerm; 
-                    option.textContent = `${item.name} (權重: ${item.weight})`;
-                    select.appendChild(option);
-                });
-            })
-            .catch(err => {
-                console.error("無法載入關鍵字:", err);
-                document.getElementById('keywordSelect').innerHTML = '<option>載入失敗</option>';
-            });
-    });
+    // 移除了 document.addEventListener("DOMContentLoaded"...) 
+    // 因為不需要再載入關鍵字選單了
 
     function callGoogleApi() {
         const query = document.getElementById('apiInput').value;
-        // 如果使用者沒選，預設用 'coffee'
-        const keywordValue = document.getElementById('keywordSelect').value || 'coffee'; 
         const resultContainer = document.getElementById('apiResult');
 
         if (!query) {
@@ -250,12 +235,12 @@
         resultContainer.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
-                <div>正在分析並排序結果...</div>
+                <div>正在進行多語言智慧搜尋與分析...</div>
             </div>`;
 
         const params = new URLSearchParams();
         params.append('apiInput', query);
-        params.append('keywordValue', keywordValue);
+        // 移除了 keywordValue 的參數傳遞
 
         fetch('/api/coffee_search', {
             method: 'POST',
@@ -269,23 +254,20 @@
         .then(data => {
             resultContainer.innerHTML = '';
             
-            // [重要修正] 
-            // 檢查回傳的是 Array (List) 還是 Object (Map)
-            // 目前 Controller 回傳 Map<String, Double>，所以是 Object
-            
             let resultsArray = [];
             
             if (Array.isArray(data)) {
-                // 如果後端改回傳 List<SearchResult>
                 resultsArray = data;
             } else {
-                // 如果後端回傳 Map { "url": score }
-                // 我們將其轉換為陣列格式以便渲染
+                // 將 Map 轉換為 Array
                 resultsArray = Object.entries(data).map(([link, score]) => {
                     return { 
                         link: link, 
                         score: score, 
-                        title: link // 因為 Map 只有網址，暫時用網址當標題
+                        // 注意：因為後端 Controller 回傳的是 Map<String, Double>，
+                        // key 只是 URL，沒有標題。這裡暫時用 URL 當標題顯示。
+                        // 如果想要顯示標題，需要修改後端回傳 SearchResult 物件列表。
+                        title: link 
                     };
                 });
             }
@@ -301,7 +283,6 @@
                 const li = document.createElement('li');
                 li.className = 'result-card';
                 
-                // 處理分數顯示 (取小數點後兩位)
                 const scoreDisplay = typeof item.score === 'number' ? item.score.toFixed(2) : item.score;
 
                 li.innerHTML = `
@@ -312,6 +293,7 @@
                         <span class="result-url">${item.link}</span>
                     </div>
                     <div class="score-badge">
+                        <span class="score-label">Score</span>
                         ${scoreDisplay}
                     </div>
                 `;

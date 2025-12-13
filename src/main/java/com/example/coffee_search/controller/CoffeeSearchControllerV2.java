@@ -1,6 +1,5 @@
 package com.example.coffee_search.controller;
 
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -8,12 +7,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -30,7 +28,7 @@ import com.example.coffee_search.service.HtmlFetcher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Controller
-public class SearchController {
+public class CoffeeSearchControllerV2 {
 
     @Autowired private GeminiService geminiService;
     @Autowired private KeywordRepository keywordRepository;
@@ -39,39 +37,22 @@ public class SearchController {
     @Value("${google.cse.apiKey}") private String apiKey;
     @Value("${google.cse.cx}") private String cx;
 
-    @GetMapping("/")
-    public String index() {
-        return "index";
-    }
-
-    @GetMapping("/api/keywords")
+    // 注意：這裡的路徑改成了 /api/v2/search，避開舊的 api
+    @PostMapping("/api/v2/search")
     @ResponseBody
-    public List<Keyword> getKeywords() {
-        return keywordRepository.findAll();
-    }
-
-    @PostMapping("/api/coffee_search")
-    @ResponseBody
-    public Map<String, Double> searchCoffee(@RequestParam("apiInput") String userQuery) {
+    public Map<String, Double> searchCoffeeV2(@RequestParam("apiInput") String userQuery) {
         
-        List<SearchResult> rawResults = new ArrayList<>();
-        
-        if (userQuery == null || userQuery.trim().isEmpty()) {
-            return new HashMap<>();
-        }
+        System.out.println("🚀🚀🚀 啟動 V2 全新搜尋引擎 🚀🚀🚀");
+        List<SearchResult> cleanResults = new ArrayList<>();
 
         try {
-            System.out.println("[Search] Start processing query: " + userQuery);
-
-            // 1. Gemini 分析 (語言偵測 + 翻譯)
+            // 1. Gemini 分析
             GeminiAnalysisResult analysis = geminiService.analyzeQuery(userQuery);
             String detectedLang = analysis.language();
             String finalSearchQuery = analysis.query();
             
-            System.out.println("[Gemini] Detected: " + detectedLang + ", Query: " + finalSearchQuery);
-
-            // 2. 處理語言邏輯與關鍵字後綴 (Context Injection)
-            String targetLangForKeywords = "en"; 
+            // 2. 處理關鍵字邏輯
+            String targetLangForKeywords = "en";
             if ("zh".equals(detectedLang)) {
                 targetLangForKeywords = "zh";
                 if (!finalSearchQuery.contains("咖啡")) finalSearchQuery += " 咖啡";
@@ -79,83 +60,88 @@ public class SearchController {
                 targetLangForKeywords = "ja";
                 if (!finalSearchQuery.contains("コーヒー")) finalSearchQuery += " コーヒー";
             } else {
-                // 其他語言統一視為英文處理
-                targetLangForKeywords = "en";
                 if (!finalSearchQuery.toLowerCase().contains("coffee")) finalSearchQuery += " coffee";
             }
 
-            System.out.println("[Search] Final Query to Google: " + finalSearchQuery);
-
-            // 3. 呼叫 Google API
-            // 使用 URI 物件避免 RestTemplate 重複編碼 (Double Encoding)
             String q = URLEncoder.encode(finalSearchQuery, StandardCharsets.UTF_8);
-            RestTemplate restTemplate = new RestTemplate();
+            System.out.println("V2 搜尋詞: " + finalSearchQuery);
+
+            // 3. Google API (全新邏輯，不依賴任何舊變數)
+             RestTemplate restTemplate = new RestTemplate();
             ObjectMapper mapper = new ObjectMapper();
 
             for (int i = 0; i < 2; i++) {
                 int start = 1 + (i * 10);
+                
+                // [關鍵修正] 使用 URI 物件來防止 RestTemplate 進行「雙重編碼」
+                // 你的 q 已經包含 % 符號，如果直接傳 String，RestTemplate 會把 % 變成 %25，導致搜尋失敗
                 String urlString = "https://www.googleapis.com/customsearch/v1?key=" + apiKey + 
                                    "&cx=" + cx + "&num=10&q=" + q + "&start=" + start;
                 
-                // [關鍵修正] 使用 URI.create 強制指定編碼正確的網址
-                URI uri = URI.create(urlString);
+                // 將 String 轉為 URI 物件，這樣 RestTemplate 就會知道「這已經是編碼好的網址」，不會再亂動它
+                java.net.URI uri = java.net.URI.create(urlString);
+
+                System.out.println("V2 呼叫 API (第 " + (i+1) + " 頁): " + uri);
                 
                 try {
+                    // [修正] 這裡改傳 uri 物件，而不是 urlString
                     String jsonResp = restTemplate.getForObject(uri, String.class);
+                    
                     Map<String, Object> body = mapper.readValue(jsonResp, Map.class);
                     
                     if (body != null && body.containsKey("items")) {
                         List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
                         
+                        System.out.println("Google 回傳了 " + items.size() + " 筆結果"); // Debug
+
                         for (Map<String, Object> item : items) {
                             String link = (String) item.get("link");
                             String title = (String) item.get("title");
                             String snippet = (String) item.get("snippet");
 
-                            // 過濾明顯無關的程式碼網站 (防呆)
+                            // 強制過濾垃圾連結
                             if (link != null && (link.contains("android.googlesource") || link.contains("github.com"))) {
+                                System.err.println("🛡️ 攔截到異常連結 (可能是編碼錯誤導致): " + link);
                                 continue; 
                             }
 
                             if (link != null && title != null) {
-                                double baseScore = calculateBaseScore(title, userQuery);
-                                rawResults.add(new SearchResult(title, link, snippet != null ? snippet : "", baseScore));
+                                cleanResults.add(new SearchResult(title, link, snippet != null ? snippet : "", 50.0));
                             }
                         }
+                    } else {
+                         System.out.println("⚠️ Google 沒有回傳 items (可能是編碼問題導致找不到結果)");
                     }
                 } catch (Exception ex) {
-                    System.err.println("[GoogleAPI] Error on page " + (i + 1) + ": " + ex.getMessage());
+                    System.err.println("Google API V2 呼叫錯誤: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
             }
-            
-            System.out.println("[GoogleAPI] Retrieved " + rawResults.size() + " items.");
 
-            // 4. 爬蟲與 Boyer-Moore 計分
+            // 4. 爬蟲與計分
             List<Keyword> keywords = keywordRepository.findByLanguage(targetLangForKeywords);
-            // 兜底機制：若該語言沒設定關鍵字，使用英文表
             if (keywords.isEmpty()) keywords = keywordRepository.findByLanguage("en");
             
             BoyerMoore boyerMoore = new BoyerMoore();
             final List<Keyword> finalKeywords = keywords;
 
-            rawResults.parallelStream().forEach(res -> {
+            cleanResults.parallelStream().forEach(res -> {
                 try {
-                    // 抓取網頁內容
+                    System.out.println("🕷️ V2 爬蟲工作中: " + res.getLink());
+                    
+                    // 二次檢查：絕對不爬 Android 原始碼
+                    if (res.getLink().contains("android.googlesource")) return;
+
                     String content = htmlFetcher.fetchContent(res.getLink());
-                    
-                    // 內容為空則退回使用標題與摘要
                     String searchContent = (content.isEmpty() ? res.getTitle() + " " + res.getSnippet() : content).toLowerCase();
-                    
+
                     for (Keyword k : finalKeywords) {
                         String pattern = k.getSearchTerm().toLowerCase();
-                        int count = 0;
-                        int idx = 0;
-                        // 計算關鍵字出現次數
+                        int count = 0, idx = 0;
                         while ((idx = boyerMoore.search(searchContent, pattern, idx)) != -1) {
                             count++;
                             idx += pattern.length();
                         }
-                        
                         if (count > 0) {
                             synchronized (res) {
                                 res.setScore(res.getScore() + (k.getWeight() * count));
@@ -163,35 +149,23 @@ public class SearchController {
                         }
                     }
                 } catch (Exception e) {
-                    // 爬蟲單一失敗不影響整體，僅印出簡短 Log
-                    System.err.println("[Crawler] Error fetching " + res.getLink());
+                    // ignore
                 }
             });
 
             // 5. 排序與輸出
             HeapSorter sorter = new HeapSorter();
-            for (SearchResult result : rawResults) {
-                sorter.insert(result);
-            }
-
-            Map<String, Double> sortedResultMap = new LinkedHashMap<>();
-            List<SearchResult> sortedList = sorter.getSortedList();
+            cleanResults.forEach(sorter::insert);
             
-            for (SearchResult res : sortedList) {
-                sortedResultMap.put(res.getLink(), res.getScore());
+            Map<String, Double> result = new LinkedHashMap<>();
+            for (SearchResult r : sorter.getSortedList()) {
+                result.put(r.getLink(), r.getScore());
             }
-
-            return sortedResultMap;
+            return result;
 
         } catch (Exception e) {
             e.printStackTrace();
             return new HashMap<>();
         }
-    }
-
-    private double calculateBaseScore(String title, String query) {
-        double score = 50.0;
-        score += new Random().nextDouble() * 5; 
-        return Math.round(score * 100.0) / 100.0;
     }
 }
