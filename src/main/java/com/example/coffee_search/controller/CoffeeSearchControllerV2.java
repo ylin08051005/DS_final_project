@@ -10,7 +10,6 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +21,7 @@ import com.example.coffee_search.model.Keyword;
 import com.example.coffee_search.model.SearchResult;
 import com.example.coffee_search.repository.KeywordRepository;
 import com.example.coffee_search.service.BoyerMoore;
+import com.example.coffee_search.service.DeepRankingService; // 新增 import
 import com.example.coffee_search.service.GeminiService;
 import com.example.coffee_search.service.HeapSorter;
 import com.example.coffee_search.service.HtmlFetcher;
@@ -33,6 +33,7 @@ public class CoffeeSearchControllerV2 {
     @Autowired private GeminiService geminiService;
     @Autowired private KeywordRepository keywordRepository;
     @Autowired private HtmlFetcher htmlFetcher;
+    @Autowired private DeepRankingService deepRankingService; // 2. 注入新的服務
 
     @Value("${google.cse.apiKey}") private String apiKey;
     @Value("${google.cse.cx}") private String cx;
@@ -74,17 +75,14 @@ public class CoffeeSearchControllerV2 {
                 int start = 1 + (i * 10);
                 
                 // [關鍵修正] 使用 URI 物件來防止 RestTemplate 進行「雙重編碼」
-                // 你的 q 已經包含 % 符號，如果直接傳 String，RestTemplate 會把 % 變成 %25，導致搜尋失敗
                 String urlString = "https://www.googleapis.com/customsearch/v1?key=" + apiKey + 
                                    "&cx=" + cx + "&num=10&q=" + q + "&start=" + start;
                 
-                // 將 String 轉為 URI 物件，這樣 RestTemplate 就會知道「這已經是編碼好的網址」，不會再亂動它
                 java.net.URI uri = java.net.URI.create(urlString);
 
                 System.out.println("V2 呼叫 API (第 " + (i+1) + " 頁): " + uri);
                 
                 try {
-                    // [修正] 這裡改傳 uri 物件，而不是 urlString
                     String jsonResp = restTemplate.getForObject(uri, String.class);
                     
                     Map<String, Object> body = mapper.readValue(jsonResp, Map.class);
@@ -118,7 +116,7 @@ public class CoffeeSearchControllerV2 {
                 }
             }
 
-            // 4. 爬蟲與計分
+            // 4. 主頁面爬蟲與計分 (這部分保留，計算主頁面分數)
             List<Keyword> keywords = keywordRepository.findByLanguage(targetLangForKeywords);
             if (keywords.isEmpty()) keywords = keywordRepository.findByLanguage("en");
             
@@ -153,12 +151,12 @@ public class CoffeeSearchControllerV2 {
                 }
             });
 
-            // 5. 排序與輸出
-            HeapSorter sorter = new HeapSorter();
-            cleanResults.forEach(sorter::insert);
-            
+            // 5. 深度排序與輸出 (呼叫新的服務)
+            // 這裡將 cleanResults 傳入，讓 DeepRankingService 進行子頁面爬取、加分與 Heap Sort 排序
+            List<SearchResult> refinedResults = deepRankingService.deepRank(cleanResults, targetLangForKeywords);
+
             Map<String, Double> result = new LinkedHashMap<>();
-            for (SearchResult r : sorter.getSortedList()) {
+            for (SearchResult r : refinedResults) { // 使用深度排序後的結果
                 result.put(r.getLink(), r.getScore());
             }
             return result;
