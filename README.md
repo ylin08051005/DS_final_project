@@ -104,50 +104,68 @@ flowchart TB
 ## 3. Class Diagram
 ```mermaid
 classDiagram
-  class SearchController {
-    + start
-    + handleQuery
-  }
+    class CoffeeSearchControllerV2 {
+        -GeminiService geminiService
+        -KeywordRepository keywordRepository
+        -HtmlFetcher htmlFetcher
+        -DeepRankingService deepRankingService
+        +searchCoffeeV2(String apiInput) Map
+    }
 
-  class TranslationService {
-    + detectAndTranslate
-    + detectLanguage
-    + translateToEnglish
-  }
+    class DeepRankingService {
+        -HtmlFetcher htmlFetcher
+        -KeywordRepository keywordRepository
+        +deepRank(List~SearchResult~, String) List~SearchResult~
+    }
 
-  class SearchService {
-    + fetchResults
-  }
+    class GeminiService {
+        -String apiKey
+        -String apiUrl
+        +analyzeQuery(String userQuery) GeminiAnalysisResult
+        -cleanJsonString(String text) String
+    }
 
-  class AnalysisService {
-    + analyze
-  }
+    class HtmlFetcher {
+        +fetchContent(String url) String
+        +extractLinks(String url) Set~String~
+    }
 
-  class RankingService {
-    + rank
-  }
+    class BoyerMoore {
+        +search(String text, String pattern, int fromIndex) int
+        -buildBadCharTable(String pattern) Map
+    }
 
-  class ResultView {
-    + displayResults
-  }
+    class HeapSorter {
+        -ArrayList~SearchResult~ heap
+        +insert(SearchResult result)
+        +extractMax() SearchResult
+        +getSortedList() List~SearchResult~
+    }
 
-  class Keyword {
-    + name
-    + weight
-  }
+    class SearchResult {
+        +String title
+        +String link
+        +String snippet
+        +double score
+    }
 
-  class SearchResult {
-    + url
-    + title
-    + snippet
-    + score
-  }
+    class Keyword {
+        +Long id
+        +String name
+        +String searchTerm
+        +Integer weight
+        +String language
+    }
 
-  SearchController --> TranslationService
-  SearchController --> SearchService
-  SearchController --> AnalysisService
-  SearchController --> RankingService
-  SearchController --> ResultView
+    %% 關係定義
+    CoffeeSearchControllerV2 ..> GeminiService : 使用
+    CoffeeSearchControllerV2 ..> DeepRankingService : 調用
+    CoffeeSearchControllerV2 ..> HtmlFetcher : 使用
+    DeepRankingService ..> BoyerMoore : 執行比對
+    DeepRankingService ..> HeapSorter : 執行排序
+    DeepRankingService ..> HtmlFetcher : 爬取子連結
+    HeapSorter "1" *-- "many" SearchResult : 管理
+    DeepRankingService ..> Keyword : 匹配權重
 ```
 
 ## 4. Sequence Diagram
