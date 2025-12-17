@@ -184,3 +184,48 @@ sequenceDiagram
   Controller->>View: displayResults
   View-->>User: show results
 ```
+
+## 5. System Architecture
+```mermaid
+graph TD
+    subgraph "前端介面 (Thymeleaf)"
+        UI[index.html]
+    end
+
+    subgraph "控制層 (Controller)"
+        SC[SearchController / V2]
+    end
+
+    subgraph "服務層 (Service Layer)"
+        GS[GeminiService]
+        HF[HtmlFetcher]
+        DRS[DeepRankingService]
+        HS[HeapSorter]
+        BM[BoyerMoore]
+    end
+
+    subgraph "資料層 (Repository)"
+        KR[KeywordRepository]
+        DB[(H2 Database)]
+    end
+
+    subgraph "外部服務 (External APIs)"
+        G_API[Google Custom Search API]
+        GEMINI[Gemini AI API]
+    end
+
+    UI -- "POST /api/v2/search" --> SC
+    SC -- "1. 語言偵測/翻譯" --> GS
+    GS -- "REST" --> GEMINI
+    SC -- "2. 搜尋網頁" --> G_API
+    SC -- "3. 網頁爬取" --> HF
+    SC -- "4. 深度重排序" --> DRS
+    DRS -- "子頁面爬取" --> HF
+    DRS -- "關鍵字比對" --> BM
+    DRS -- "排序演算法" --> HS
+    SC -- "讀取權重" --> KR
+    KR --> DB
+    SC -- "回傳 JSON 結果" --> UI
+```
+
+
