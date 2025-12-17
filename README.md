@@ -2,70 +2,67 @@
 2025 Data Structure class
 
 ```mermaid
-flowchart LR
-  subgraph UI["UI Layer 使用者介面層"]
-    U[使用者]
-    V[ResultView - displayResults  displayError]
-  end
+flowchart TD
+    %% 使用者介面層
+    subgraph UI_Layer ["UI Layer 使用者介面層"]
+        User((使用者))
+        Index[index.html]
+    end
 
-  subgraph Controller["Controller Layer"]
-    C[SearchController - start  handleQuery  handleError]
-  end
+    %% 控制層
+    subgraph Controller_Layer ["Controller Layer 控制層"]
+        C2[CoffeeSearchControllerV2]
+    end
 
-  subgraph Service["Service Layer 應用邏輯層"]
-    T[TranslationService - detect language translate to English]
-    S[SearchService - fetchResults  buildSearchUrl  parseSearchResponse]
-    A[AnalysisService - analyze  fetchHtml  extractText  tokenize]
-    R[RankingService - rank  loadWeights  score]
-    O[ResultService - format as HTML JSON]
-  end
+    %% 應用邏輯層
+    subgraph Service_Layer ["Service Layer 應用邏輯層"]
+        GS[GeminiService - 語言偵測與翻譯]
+        DRS[DeepRankingService - 深度重排序]
+        HF[HtmlFetcher - 網頁抓取與連結提取]
+        BM[BoyerMoore - 字串搜尋演算法]
+        HS[HeapSorter - 堆積排序演算法]
+    end
 
-  subgraph Model["Model Layer 資料模型層"]
-    M1[Keyword  name  weight]
-    M2[SearchResult  url  title  snippet  score]
-  end
+    %% 工具與資料模型層
+    subgraph Model_Layer ["Model Layer 資料模型層"]
+        KR[KeywordRepository - 權重資料存取]
+        SR[SearchResult - 搜尋結果模型]
+        M_DB[(H2 Database)]
+    end
 
-  subgraph Util["Utility Layer 工具層"]
-    H[HttpUtil  get]
-    J[JsonUtil  parseLanguageCode  parseTranslatedText]
-    X[TextUtil  stripHtml  normalize]
-    P[HtmlParser  extractMainText  extractTitle]
-    W[WeightConfig  loadFromJson]
-    G[ConfigLoader  get]
-    K[Cache  InMemoryCache]
-  end
+    %% 外部服務
+    subgraph External_Services ["External Services 外部服務"]
+        GE_API[Gemini API]
+        GS_API[Google Custom Search API]
+    end
 
-  subgraph External["External Services"]
-    GT[(Google Translation API)]
-    GS[(Google Custom Search API)]
-  end
+    %% 流程連線
+    User --> Index
+    Index -- "1. 送出搜尋請求" --> C2
+    
+    C2 -- "2. 分析語言/優化查詢" --> GS
+    GS <--> GE_API
+    
+    C2 -- "3. 獲取原始搜尋結果" --> GS_API
+    
+    C2 -- "4. 執行深度排序與爬蟲" --> DRS
+    DRS -- "抓取主頁/子頁內容" --> HF
+    DRS -- "計算關鍵字頻率" --> BM
+    DRS -- "根據分數排序" --> HS
+    
+    DRS -- "讀取多語言權重" --> KR
+    KR <--> M_DB
+    
+    DRS -.-> SR
+    C2 -- "5. 回傳排序後的 Map" --> Index
+    Index -- "顯示結果" --> User
 
-  U --> C
-  C --> T --> GT
-  C --> S --> GS
-  C --> A
-  C --> R
-  C --> O
-  C --> V
-
-  T --> H
-  T --> J
-  S --> H
-  S --> J
-  R --> J
-  A --> P
-  A --> X
-  R --> W
-  T --> G
-  S --> G
-  A --> G
-  R --> G
-  C --> K
-
-  S --> M2
-  A --> M2
-  R --> M2
-  R --> M1
+    %% 樣式設定
+    style UI_Layer fill:#f9f,stroke:#333,stroke-width:2px
+    style Controller_Layer fill:#bbf,stroke:#333,stroke-width:2px
+    style Service_Layer fill:#dfd,stroke:#333,stroke-width:2px
+    style Model_Layer fill:#fff4dd,stroke:#333,stroke-width:2px
+    style External_Services fill:#eee,stroke:#333,stroke-dasharray: 5 5
 ```
 
 ## 2. Folder Structure
