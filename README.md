@@ -171,36 +171,59 @@ classDiagram
 ## 4. Sequence Diagram
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor User
-  participant Controller as SearchController
-  participant Trans as TranslationService
-  participant Search as SearchService
-  participant Anal as AnalysisService
-  participant Rank as RankingService
-  participant View as ResultView
-  participant GT as Google Translate API
-  participant GS as Google Search API
+    autonumber
+    actor User as 使用者
+    participant UI as index.html (前端)
+    participant C as CoffeeSearchControllerV2
+    participant G as GeminiService
+    participant API as Google Search API
+    participant H as HtmlFetcher
+    participant D as DeepRankingService
+    participant B as BoyerMoore
+    participant S as HeapSorter
 
-  User->>Controller: start
-  Controller->>Trans: detectAndTranslate
-  Trans->>GT: call detect and translate
-  GT-->>Trans: return translated text
-  Trans-->>Controller: translated query
+    User->>UI: 輸入關鍵字並點擊搜尋
+    UI->>C: POST /api/v2/search (apiInput)
+    
+    Note over C,G: 1. 語言偵測與查詢優化
+    C->>G: analyzeQuery(userQuery)
+    G-->>C: 回傳 GeminiAnalysisResult (語言與優化查詢)
 
-  Controller->>Search: fetchResults
-  Search->>GS: query Custom Search API
-  GS-->>Search: return JSON
-  Search-->>Controller: list of results
+    Note over C,API: 2. 獲取原始搜尋結果
+    loop 分頁抓取 (共 2 頁)
+        C->>API: 呼叫 Google Custom Search
+        API-->>C: 回傳搜尋結果 (SearchResult 列表)
+    end
 
-  Controller->>Anal: analyze
-  Anal-->>Controller: parsed results
+    Note over C,H: 3. 初步網頁計分
+    C->>H: fetchContent(網址)
+    H-->>C: 回傳網頁內容
+    C->>B: 使用 Boyer-Moore 比對關鍵字
+    B-->>C: 累計主頁面分數
 
-  Controller->>Rank: rank
-  Rank-->>Controller: sorted results
+    Note over C,D: 4. 啟動深度重排序 (Deep Ranking)
+    C->>D: deepRank(results, language)
+    
+    loop 對於每一筆結果 (平行處理)
+        D->>H: extractLinks(主連結)
+        H-->>D: 回傳子連結集合
+        
+        loop 對於每個子連結
+            D->>H: fetchContent(子連結)
+            H-->>D: 回傳內容
+            D->>B: search(內容, 關鍵字)
+            B-->>D: 回傳出現次數
+        end
+        D->>D: 計算子頁面加權獎勵並更新分數
+    end
 
-  Controller->>View: displayResults
-  View-->>User: show results
+    Note over D,S: 5. 堆積排序 (Heap Sort)
+    D->>S: insert(SearchResult)
+    S->>D: getSortedList() (從大到小排序)
+    D-->>C: 回傳排序後的結果清單
+
+    C-->>UI: 回傳最終排序 Map (網址: 分數)
+    UI-->>User: 渲染搜尋結果列表
 ```
 
 ## 5. System Architecture
