@@ -33,7 +33,7 @@ flowchart TD
         M_DB[(H2 Database)]
     end
 
-    %% 外部服務 (完全獨立的外部端點)
+    %% 外部服務 (完全獨立的兩個端點)
     subgraph External_Services ["External Services 外部服務"]
         GE_API[Gemini AI API]
         GS_API[Google Custom Search API]
@@ -43,26 +43,23 @@ flowchart TD
     User --> Index
     Index -- "1. 送出搜尋請求" --> C2
     
-    %% 第一階段：呼叫 Gemini 進行分析 (獨立路徑)
+    %% 修正後的獨立連線路徑
     C2 -- "2. 請求語意分析" --> GS
     GS <--> GE_API
     
-    %% 第二階段：呼叫 Google 進行搜尋 (獨立路徑)
-    C2 -- "3. 獲取原始搜尋結果" --> GS_API
+    C2 -- "3. 請求原始搜尋結果" --> GS_API
     
-    %% 第三階段：執行深度排序與爬蟲邏輯
+    %% 後續處理邏輯
     C2 -- "4. 啟動深度排序" --> DRS
     DRS -- "爬取網頁內容" --> HF
     DRS -- "統計關鍵字頻率" --> BM
-    DRS -- "結果插入 Heap" --> HS
+    DRS -- "結果排序" --> HS
     
-    %% 資料存取
-    DRS -- "讀取多語言權重" --> KR
+    DRS -- "讀取權重" --> KR
     KR <--> M_DB
     
-    %% 模型封裝與回傳
     DRS -.-> SR
-    C2 -- "5. 回傳排序後的 Map" --> Index
+    C2 -- "5. 回傳結果" --> Index
     Index -- "顯示最終結果" --> User
 
     %% 套用統一顏色樣式
