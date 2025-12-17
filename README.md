@@ -3,6 +3,9 @@
 
 ```mermaid
 flowchart TD
+    %% 全域樣式定義
+    classDef unifiedStyle fill:#fff4dd,stroke:#6F4E37,stroke-width:2px,color:#333
+
     %% 使用者介面層
     subgraph UI_Layer ["UI Layer 使用者介面層"]
         User((使用者))
@@ -16,23 +19,23 @@ flowchart TD
 
     %% 應用邏輯層
     subgraph Service_Layer ["Service Layer 應用邏輯層"]
-        GS[GeminiService - 語言偵測與翻譯]
-        DRS[DeepRankingService - 深度重排序]
-        HF[HtmlFetcher - 網頁抓取與連結提取]
-        BM[BoyerMoore - 字串搜尋演算法]
-        HS[HeapSorter - 堆積排序演算法]
+        GS[GeminiService]
+        DRS[DeepRankingService]
+        HF[HtmlFetcher]
+        BM[BoyerMoore]
+        HS[HeapSorter]
     end
 
-    %% 工具與資料模型層
-    subgraph Model_Layer ["Model Layer 資料模型層"]
-        KR[KeywordRepository - 權重資料存取]
-        SR[SearchResult - 搜尋結果模型]
+    %% 資料與模型層
+    subgraph Model_Layer ["Model Layer 資料與模型層"]
+        KR[KeywordRepository]
+        SR[SearchResult]
         M_DB[(H2 Database)]
     end
 
     %% 外部服務
     subgraph External_Services ["External Services 外部服務"]
-        GE_API[Gemini API]
+        GE_API[Gemini AI API]
         GS_API[Google Custom Search API]
     end
 
@@ -40,29 +43,26 @@ flowchart TD
     User --> Index
     Index -- "1. 送出搜尋請求" --> C2
     
+    %% 修正後的外部 API 呼叫路徑
     C2 -- "2. 分析語言/優化查詢" --> GS
     GS <--> GE_API
     
     C2 -- "3. 獲取原始搜尋結果" --> GS_API
     
     C2 -- "4. 執行深度排序與爬蟲" --> DRS
-    DRS -- "抓取主頁/子頁內容" --> HF
+    DRS -- "抓取網頁內容" --> HF
     DRS -- "計算關鍵字頻率" --> BM
-    DRS -- "根據分數排序" --> HS
+    DRS -- "執行堆積排序" --> HS
     
     DRS -- "讀取多語言權重" --> KR
     KR <--> M_DB
     
     DRS -.-> SR
-    C2 -- "5. 回傳排序後的 Map" --> Index
-    Index -- "顯示結果" --> User
+    C2 -- "5. 回傳排序結果" --> Index
+    Index -- "渲染頁面" --> User
 
-    %% 樣式設定
-    style UI_Layer fill:#f9f,stroke:#333,stroke-width:2px
-    style Controller_Layer fill:#bbf,stroke:#333,stroke-width:2px
-    style Service_Layer fill:#dfd,stroke:#333,stroke-width:2px
-    style Model_Layer fill:#fff4dd,stroke:#333,stroke-width:2px
-    style External_Services fill:#eee,stroke:#333,stroke-dasharray: 5 5
+    %% 套用統一顏色
+    class UI_Layer,Controller_Layer,Service_Layer,Model_Layer,External_Services,Index,C2,GS,DRS,HF,BM,HS,KR,SR,GE_API,GS_API unifiedStyle
 ```
 
 ## 2. Folder Structure
