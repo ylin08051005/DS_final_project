@@ -43,7 +43,7 @@ public class CoffeeSearchControllerV2 {
     @ResponseBody
     public Map<String, Double> searchCoffeeV2(@RequestParam("apiInput") String userQuery) {
         
-        System.out.println("🚀🚀🚀 啟動 V2 全新搜尋引擎 🚀🚀🚀");
+        System.out.println("啟動 V2 全新搜尋引擎");
         List<SearchResult> cleanResults = new ArrayList<>();
 
         try {
@@ -108,7 +108,7 @@ public class CoffeeSearchControllerV2 {
                             }
                         }
                     } else {
-                         System.out.println("⚠️ Google 沒有回傳 items (可能是編碼問題導致找不到結果)");
+                         System.out.println("Google 沒有回傳 items (可能是編碼問題導致找不到結果)");
                     }
                 } catch (Exception ex) {
                     System.err.println("Google API V2 呼叫錯誤: " + ex.getMessage());

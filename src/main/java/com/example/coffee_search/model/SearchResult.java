@@ -5,12 +5,12 @@ public class SearchResult {
     private String link;
     private String snippet;
     private double score;
+    private String thumbnailLink; // [新增] 圖片縮圖連結
 
-    // 無參數建構子 (NoArgsConstructor)
-    public SearchResult() {
-    }
+    // 無參數建構子
+    public SearchResult() {}
 
-    // 全參數建構子 (AllArgsConstructor)
+    // 一般網頁搜尋用的建構子
     public SearchResult(String title, String link, String snippet, double score) {
         this.title = title;
         this.link = link;
@@ -18,36 +18,27 @@ public class SearchResult {
         this.score = score;
     }
 
-    // --- Getters and Setters ---
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
+    // 圖片搜尋用的建構子
+    public SearchResult(String title, String link, String thumbnailLink) {
         this.title = title;
-    }
-
-    public String getLink() {
-        return link;
-    }
-
-    public void setLink(String link) {
         this.link = link;
+        this.thumbnailLink = thumbnailLink;
+        this.score = 0; // 圖片預設不計分
     }
 
-    public String getSnippet() {
-        return snippet;
-    }
+    // --- Getters & Setters ---
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setSnippet(String snippet) {
-        this.snippet = snippet;
-    }
+    public String getLink() { return link; }
+    public void setLink(String link) { this.link = link; }
 
-    public double getScore() {
-        return score;
-    }
+    public String getSnippet() { return snippet; }
+    public void setSnippet(String snippet) { this.snippet = snippet; }
 
-    public void setScore(double score) {
-        this.score = score;
-    }
+    public double getScore() { return score; }
+    public void setScore(double score) { this.score = score; }
+
+    public String getThumbnailLink() { return thumbnailLink; }
+    public void setThumbnailLink(String thumbnailLink) { this.thumbnailLink = thumbnailLink; }
 }

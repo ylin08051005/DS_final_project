@@ -7,12 +7,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #6F4E37; /* Coffee Brown */
-            --secondary-color: #A67B5B; /* Latte */
-            --accent-color: #2C3E50; /* Dark Blue/Grey */
+            --primary-color: #6F4E37;
+            --secondary-color: #A67B5B;
+            --accent-color: #2C3E50;
             --bg-color: #F4F6F9;
             --card-bg: #FFFFFF;
-            --highlight: #E67E22;
         }
 
         body {
@@ -34,78 +33,68 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             max-width: 800px;
             width: 100%;
-            transition: transform 0.3s ease;
         }
 
         h2 {
             text-align: center;
             color: var(--primary-color);
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-weight: 700;
             font-size: 2.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
         }
 
-        /* 修改後的搜尋區塊樣式 */
+        /* 搜尋類型 Tab */
+        .search-type-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            padding: 8px 20px;
+            border: 2px solid #eee;
+            border-radius: 20px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
         .search-box {
-            display: flex; /* 改用 Flex 讓輸入框和按鈕並排 */
+            display: flex;
             gap: 10px;
             margin-bottom: 30px;
         }
 
         input[type="text"] {
-            flex: 1; /* 輸入框佔據剩餘空間 */
+            flex: 1;
             padding: 15px;
             border: 2px solid #eee;
             border-radius: 12px;
             font-size: 16px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-            background-color: #fafafa;
-            color: #333;
         }
 
-        input[type="text"]:focus {
-            outline: none;
-            border-color: var(--secondary-color);
-            background-color: #fff;
-            box-shadow: 0 0 0 4px rgba(111, 78, 55, 0.1);
-        }
-
-        /* 按鈕樣式 */
-        button {
-            width: auto; /* 自動寬度 */
-            min-width: 120px;
-            padding: 15px 25px;
+        button.search-btn {
+            min-width: 100px;
+            padding: 15px;
             background-color: var(--primary-color);
             color: white;
             border: none;
             border-radius: 12px;
             font-size: 18px;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(111, 78, 55, 0.2);
-            white-space: nowrap;
         }
 
-        button:hover {
-            background-color: #5a3e2b;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(111, 78, 55, 0.3);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        /* 搜尋結果列表樣式 */
-        #apiResult ul {
-            list-style-type: none;
-            padding: 0;
+        /* 結果列表 (Web/PDF) */
+        .result-list {
             display: grid;
             gap: 15px;
         }
@@ -118,21 +107,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .result-card:hover {
-            border-color: var(--secondary-color);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transform: translateX(5px);
-        }
-
-        .result-content {
-            flex: 1;
-            min-width: 0;
-            margin-right: 15px;
         }
 
         .result-link {
@@ -140,19 +114,6 @@
             color: var(--accent-color);
             font-weight: 700;
             font-size: 1.1rem;
-            display: block;
-            margin-bottom: 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .result-url {
-            color: #888;
-            font-size: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
             display: block;
         }
 
@@ -163,45 +124,53 @@
             border-radius: 20px;
             font-weight: 700;
             font-size: 0.9rem;
-            min-width: 80px; /* 稍微加寬 */
+            min-width: 60px;
             text-align: center;
-            border: 1px solid #c8e6c9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
         
-        .score-label {
-            font-size: 0.7rem;
-            color: #1b5e20;
-            margin-bottom: 2px;
+        /* 圖片網格佈局 */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        
+        .image-card {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eee;
+            transition: transform 0.2s;
+        }
+        
+        .image-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .image-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .image-card .info {
+            padding: 10px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* 載入動畫 */
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--secondary-color);
-        }
+        .loading { text-align: center; padding: 20px; color: var(--secondary-color); }
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
+            width: 36px; height: 36px; border-radius: 50%;
             border-left-color: var(--primary-color);
             animation: spin 1s linear infinite;
             margin: 0 auto 10px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* RWD */
-        @media (max-width: 600px) {
-            .container { padding: 20px; }
-            h2 { font-size: 1.8rem; }
-            .search-box { flex-direction: column; }
-            button { width: 100%; }
-        }
     </style>
 </head>
 <body>
@@ -209,113 +178,122 @@
 <div class="container">
     <h2>☕ Coffee Search Engine</h2>
 
+    <div class="search-type-tabs">
+        <div class="tab-btn active" onclick="setSearchType('web', this)">🌐 全部</div>
+        <div class="tab-btn" onclick="setSearchType('image', this)">🖼️ 圖片</div>
+        <div class="tab-btn" onclick="setSearchType('pdf', this)">📄 PDF</div>
+    </div>
+
     <div class="search-box">
-        <!-- 移除了 select，只保留輸入框與按鈕 -->
-        <input type="text" id="apiInput" placeholder="輸入關鍵字 (例如: 拿鐵, 烘焙, delicious coffee)..." autofocus />
-        <button onclick="callGoogleApi()">搜尋</button>
+        <input type="text" id="apiInput" placeholder="輸入關鍵字 (例如: 拿鐵, 烘焙)..." autofocus />
+        <button class="search-btn" onclick="callGoogleApi()">搜尋</button>
     </div>
 
     <div id="apiResult"></div>
 </div>
 
 <script>
-    // 移除了 document.addEventListener("DOMContentLoaded"...) 
-    // 因為不需要再載入關鍵字選單了
+    let currentSearchType = 'web';
+
+    function setSearchType(type, btn) {
+        currentSearchType = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // 如果輸入框有值，直接觸發搜尋
+        if(document.getElementById('apiInput').value.trim() !== "") {
+            callGoogleApi();
+        }
+    }
 
     function callGoogleApi() {
         const query = document.getElementById('apiInput').value;
         const resultContainer = document.getElementById('apiResult');
 
-        if (!query) {
-            alert('請輸入搜尋內容！');
-            return;
-        }
+        if (!query) { alert('請輸入搜尋內容！'); return; }
 
-        // 顯示載入動畫
         resultContainer.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
-                <div>正在進行多語言智慧搜尋與分析...</div>
+                <div>正在進行 ${currentSearchType === 'image' ? '圖片' : '智慧'} 搜尋...</div>
             </div>`;
 
         const params = new URLSearchParams();
         params.append('apiInput', query);
-        // 移除了 keywordValue 的參數傳遞
+        params.append('searchType', currentSearchType);
 
-        fetch('/api/v2/search', {
+        fetch('/api/coffee_search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: params
         })
+        .then(response => response.json())
         .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
             resultContainer.innerHTML = '';
             
-            let resultsArray = [];
-            
-            if (Array.isArray(data)) {
-                resultsArray = data;
-            } else {
-                // 將 Map 轉換為 Array
-                resultsArray = Object.entries(data).map(([link, score]) => {
-                    return { 
-                        link: link, 
-                        score: score, 
-                        // 注意：因為後端 Controller 回傳的是 Map<String, Double>，
-                        // key 只是 URL，沒有標題。這裡暫時用 URL 當標題顯示。
-                        // 如果想要顯示標題，需要修改後端回傳 SearchResult 物件列表。
-                        title: link 
-                    };
-                });
-            }
+            // 後端回傳格式: { type: "web", data: [...] }
+            const type = response.type;
+            const data = response.data;
 
-            if (resultsArray.length === 0) {
+            if (!data || data.length === 0) {
                 resultContainer.innerHTML = '<p style="text-align:center; color:#666;">找不到相關結果。</p>';
                 return;
             }
 
-            const ul = document.createElement('ul');
-            
-            resultsArray.forEach(item => {
-                const li = document.createElement('li');
-                li.className = 'result-card';
-                
-                const scoreDisplay = typeof item.score === 'number' ? item.score.toFixed(2) : item.score;
-
-                li.innerHTML = `
-                    <div class="result-content">
-                        <a href="${item.link}" target="_blank" class="result-link" title="${item.title}">
-                            ${item.title}
-                        </a>
-                        <span class="result-url">${item.link}</span>
-                    </div>
-                    <div class="score-badge">
-                        <span class="score-label">Score</span>
-                        ${scoreDisplay}
-                    </div>
-                `;
-                ul.appendChild(li);
-            });
-            resultContainer.appendChild(ul);
+            // 根據類型選擇渲染模式
+            if (type === 'image') {
+                renderImages(data, resultContainer);
+            } else {
+                renderList(data, resultContainer, type === 'pdf');
+            }
         })
         .catch(error => {
             console.error('Error:', error);
-            resultContainer.innerHTML = `
-                <div style="text-align:center; color:#e74c3c; padding:20px;">
-                    <h3>😕 發生錯誤</h3>
-                    <p>無法取得搜尋結果，請稍後再試。</p>
-                </div>`;
+            resultContainer.innerHTML = '<div style="text-align:center;">發生錯誤，請稍後再試。</div>';
         });
     }
+
+    function renderImages(data, container) {
+        const grid = document.createElement('div');
+        grid.className = 'image-grid';
+        data.forEach(item => {
+            grid.innerHTML += `
+                <div class="image-card">
+                    <a href="${item.link}" target="_blank">
+                        <img src="${item.thumbnailLink || 'https://via.placeholder.com/150'}" alt="${item.title}">
+                    </a>
+                    <div class="info">${item.title}</div>
+                </div>
+            `;
+        });
+        container.appendChild(grid);
+    }
+
+    function renderList(data, container, isPdf) {
+        const ul = document.createElement('div');
+        ul.className = 'result-list';
+        data.forEach(item => {
+            const scoreDisplay = typeof item.score === 'number' ? item.score.toFixed(2) : item.score;
+            ul.innerHTML += `
+                <div class="result-card">
+                    <div class="result-content">
+                        <a href="${item.link}" target="_blank" class="result-link">
+                            ${isPdf ? '📄 ' : ''} ${item.title}
+                        </a>
+                        <span class="result-url" style="color:#888; font-size:0.85rem;">${item.link}</span>
+                        ${!isPdf ? `<div style="font-size:0.9rem; color:#555; margin-top:5px;">${item.snippet}</div>` : ''}
+                    </div>
+                    <div class="score-badge">
+                        <div style="font-size:0.7rem;">Score</div>
+                        ${scoreDisplay}
+                    </div>
+                </div>
+            `;
+        });
+        container.appendChild(ul);
+    }
     
-    // 支援 Enter 鍵送出
-    document.getElementById("apiInput").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-            callGoogleApi();
-        }
+    document.getElementById("apiInput").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") callGoogleApi();
     });
 </script>
 </body>
