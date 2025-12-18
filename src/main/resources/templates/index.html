@@ -13,164 +13,66 @@
             --bg-color: #F4F6F9;
             --card-bg: #FFFFFF;
         }
-
         body {
             font-family: 'Nunito', sans-serif;
             background-color: var(--bg-color);
             background-image: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            margin: 0;
-            padding: 40px 20px;
+            display: flex; justify-content: center; align-items: flex-start;
+            min-height: 100vh; margin: 0; padding: 40px 20px;
         }
-
         .container {
-            background-color: var(--card-bg);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            max-width: 800px;
-            width: 100%;
+            background-color: var(--card-bg); padding: 40px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); max-width: 800px; width: 100%;
         }
-
-        h2 {
-            text-align: center;
-            color: var(--primary-color);
-            margin-bottom: 20px;
-            font-weight: 700;
-            font-size: 2.2rem;
-        }
-
-        /* 搜尋類型 Tab */
-        .search-type-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
+        h2 { text-align: center; color: var(--primary-color); margin-bottom: 20px; font-weight: 700; font-size: 2.2rem; }
+        .search-type-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
         .tab-btn {
-            padding: 8px 20px;
-            border: 2px solid #eee;
-            border-radius: 20px;
-            background: #fff;
-            cursor: pointer;
-            font-weight: 600;
-            color: #666;
-            transition: all 0.2s;
+            padding: 8px 20px; border: 2px solid #eee; border-radius: 20px; background: #fff;
+            cursor: pointer; font-weight: 600; color: #666; transition: all 0.2s;
         }
-
-        .tab-btn.active {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid #eee;
-            border-radius: 12px;
-            font-size: 16px;
-        }
-
+        .tab-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 15px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; }
         button.search-btn {
-            min-width: 100px;
-            padding: 15px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 18px;
-            cursor: pointer;
+            min-width: 100px; padding: 15px; background-color: var(--primary-color);
+            color: white; border: none; border-radius: 12px; font-size: 18px; cursor: pointer;
         }
 
-        /* 結果列表 (Web/PDF) */
-        .result-list {
-            display: grid;
-            gap: 15px;
-        }
+        /* 進度條 */
+        .status-bar { height: 4px; background: #eee; width: 100%; margin-bottom: 20px; border-radius: 2px; overflow: hidden; display: none; }
+        .progress { height: 100%; background: var(--secondary-color); width: 0%; transition: width 0.3s; }
+        .status-text { text-align: center; font-size: 0.9rem; color: #888; margin-bottom: 10px; height: 20px; }
 
+        /* 結果列表容器 - 必須設定 position: relative 以利動畫計算 */
+        .result-list { display: flex; flex-direction: column; gap: 15px; position: relative; }
+
+        /* 結果卡片 */
         .result-card {
-            background: #fff;
-            border: 1px solid #f0f0f0;
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: box-shadow 0.3s, background-color 0.3s; /* 不要在這裡加 transform transition，由 JS 控制 */
+            will-change: transform; /* 效能優化 */
         }
+        .result-card:hover { border-color: var(--secondary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        
+        /* 排名上升時的閃爍效果 */
+        @keyframes flash-green { 0% { background-color: #e8f5e9; } 100% { background-color: #fff; } }
+        .rank-up { animation: flash-green 1s ease-out; }
 
-        .result-link {
-            text-decoration: none;
-            color: var(--accent-color);
-            font-weight: 700;
-            font-size: 1.1rem;
-            display: block;
-        }
-
+        .result-content { flex: 1; min-width: 0; margin-right: 15px; }
+        .result-link { text-decoration: none; color: var(--accent-color); font-weight: 700; font-size: 1.1rem; display: block; }
         .score-badge {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            min-width: 60px;
-            text-align: center;
-        }
-        
-        /* 圖片網格佈局 */
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 15px;
-        }
-        
-        .image-card {
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #eee;
-            transition: transform 0.2s;
-        }
-        
-        .image-card:hover {
-            transform: scale(1.03);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        
-        .image-card img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            display: block;
-        }
-        
-        .image-card .info {
-            padding: 10px;
-            font-size: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            background-color: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 20px;
+            font-weight: 700; font-size: 0.9rem; min-width: 60px; text-align: center;
+            transition: transform 0.3s;
         }
 
-        .loading { text-align: center; padding: 20px; color: var(--secondary-color); }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px; height: 36px; border-radius: 50%;
-            border-left-color: var(--primary-color);
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 圖片網格 */
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .image-card { border-radius: 12px; overflow: hidden; border: 1px solid #eee; transition: transform 0.2s; }
+        .image-card:hover { transform: scale(1.03); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .image-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
+        .image-card .info { padding: 10px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -185,115 +87,238 @@
     </div>
 
     <div class="search-box">
-        <input type="text" id="apiInput" placeholder="輸入關鍵字 (例如: 拿鐵, 烘焙)..." autofocus />
-        <button class="search-btn" onclick="callGoogleApi()">搜尋</button>
+        <input type="text" id="apiInput" placeholder="輸入關鍵字..." autofocus />
+        <button class="search-btn" onclick="startSearch()">搜尋</button>
     </div>
 
+    <div class="status-bar" id="statusBar"><div class="progress" id="progressBar"></div></div>
+    <div class="status-text" id="statusText"></div>
+    
     <div id="apiResult"></div>
 </div>
 
 <script>
     let currentSearchType = 'web';
+    let eventSource = null;
+    let currentData = []; // 儲存目前的搜尋結果資料
 
     function setSearchType(type, btn) {
         currentSearchType = type;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        // 如果輸入框有值，直接觸發搜尋
-        if(document.getElementById('apiInput').value.trim() !== "") {
-            callGoogleApi();
-        }
+        if(document.getElementById('apiInput').value.trim() !== "") startSearch();
     }
 
-    function callGoogleApi() {
+    function startSearch() {
         const query = document.getElementById('apiInput').value;
-        const resultContainer = document.getElementById('apiResult');
-
         if (!query) { alert('請輸入搜尋內容！'); return; }
 
-        resultContainer.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <div>正在進行 ${currentSearchType === 'image' ? '圖片' : '智慧'} 搜尋...</div>
-            </div>`;
+        // 重置狀態
+        if (eventSource) eventSource.close();
+        const container = document.getElementById('apiResult');
+        container.innerHTML = '';
+        currentData = [];
+        
+        document.getElementById('statusBar').style.display = 'block';
+        document.getElementById('progressBar').style.width = '5%';
+        document.getElementById('statusText').innerText = '正在連線 Google API...';
 
-        const params = new URLSearchParams();
-        params.append('apiInput', query);
-        params.append('searchType', currentSearchType);
+        // 建立 SSE 連線
+        const url = `/api/stream-search?apiInput=${encodeURIComponent(query)}&searchType=${currentSearchType}`;
+        eventSource = new EventSource(url);
 
-        fetch('/api/coffee_search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params
-        })
-        .then(response => response.json())
-        .then(response => {
-            resultContainer.innerHTML = '';
+        // 1. 初始資料事件 (Init)
+        eventSource.addEventListener('init', function(e) {
+            const data = JSON.parse(e.data);
+            currentData = data;
             
-            // 後端回傳格式: { type: "web", data: [...] }
-            const type = response.type;
-            const data = response.data;
-
-            if (!data || data.length === 0) {
-                resultContainer.innerHTML = '<p style="text-align:center; color:#666;">找不到相關結果。</p>';
-                return;
-            }
-
-            // 根據類型選擇渲染模式
-            if (type === 'image') {
-                renderImages(data, resultContainer);
+            document.getElementById('progressBar').style.width = '30%';
+            document.getElementById('statusText').innerText = '取得初步名單，開始智慧爬蟲計分...';
+            
+            if (currentSearchType === 'image') {
+                renderImages(data, container);
             } else {
-                renderList(data, resultContainer, type === 'pdf');
+                renderList(data, container, currentSearchType === 'pdf');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            resultContainer.innerHTML = '<div style="text-align:center;">發生錯誤，請稍後再試。</div>';
         });
+
+        // 2. 更新分數事件 (Update)
+        eventSource.addEventListener('update', function(e) {
+            const update = JSON.parse(e.data); // {link: "...", score: 123.4}
+            
+            // 找到對應的項目並更新分數
+            const target = currentData.find(item => item.link === update.link);
+            if (target) {
+                target.score = update.score;
+                
+                // 只有 Web 搜尋需要做即時排序動畫
+                if (currentSearchType === 'web') {
+                    animateReorder(container);
+                } else {
+                    // PDF 搜尋直接更新分數文字即可
+                    updateScoreText(target.link, target.score);
+                }
+            }
+        });
+
+        // 3. 完成事件 (Final/Complete)
+        eventSource.addEventListener('final', function(e) {
+            const finalData = JSON.parse(e.data);
+            currentData = finalData;
+            
+            // 最後強制用最終排序刷新一次，確保完全正確
+            if (currentSearchType === 'web') {
+                renderList(finalData, container, false);
+            }
+            
+            finishSearch();
+        });
+
+        eventSource.addEventListener('complete', function(e) {
+            finishSearch();
+        });
+
+        eventSource.addEventListener('error', function(e) {
+            if (e.data) alert(e.data);
+            finishSearch();
+        });
+        
+        eventSource.onerror = function() {
+            // 連線中斷或其他錯誤
+            finishSearch();
+        };
     }
 
+    function finishSearch() {
+        if (eventSource) eventSource.close();
+        document.getElementById('progressBar').style.width = '100%';
+        document.getElementById('statusText').innerText = '搜尋完成';
+        setTimeout(() => {
+            document.getElementById('statusBar').style.display = 'none';
+            document.getElementById('statusText').innerText = '';
+        }, 2000);
+    }
+
+    // --- 渲染邏輯 ---
+
     function renderImages(data, container) {
-        const grid = document.createElement('div');
-        grid.className = 'image-grid';
+        let html = '<div class="image-grid">';
         data.forEach(item => {
-            grid.innerHTML += `
+            html += `
                 <div class="image-card">
                     <a href="${item.link}" target="_blank">
                         <img src="${item.thumbnailLink || 'https://via.placeholder.com/150'}" alt="${item.title}">
                     </a>
                     <div class="info">${item.title}</div>
-                </div>
-            `;
+                </div>`;
         });
-        container.appendChild(grid);
+        html += '</div>';
+        container.innerHTML = html;
     }
 
     function renderList(data, container, isPdf) {
-        const ul = document.createElement('div');
-        ul.className = 'result-list';
+        // 先清空，重新渲染
+        container.innerHTML = '';
         data.forEach(item => {
-            const scoreDisplay = typeof item.score === 'number' ? item.score.toFixed(2) : item.score;
-            ul.innerHTML += `
-                <div class="result-card">
-                    <div class="result-content">
-                        <a href="${item.link}" target="_blank" class="result-link">
-                            ${isPdf ? '📄 ' : ''} ${item.title}
-                        </a>
-                        <span class="result-url" style="color:#888; font-size:0.85rem;">${item.link}</span>
-                        ${!isPdf ? `<div style="font-size:0.9rem; color:#555; margin-top:5px;">${item.snippet}</div>` : ''}
-                    </div>
-                    <div class="score-badge">
-                        <div style="font-size:0.7rem;">Score</div>
-                        ${scoreDisplay}
-                    </div>
-                </div>
-            `;
+            const card = createCardElement(item, isPdf);
+            container.appendChild(card);
         });
-        container.appendChild(ul);
+    }
+
+    function createCardElement(item, isPdf) {
+        const div = document.createElement('div');
+        div.className = 'result-card';
+        div.setAttribute('data-link', item.link); // 用於識別
+        div.innerHTML = `
+            <div class="result-content">
+                <a href="${item.link}" target="_blank" class="result-link">
+                    ${isPdf ? '📄 ' : ''} ${item.title}
+                </a>
+                <span class="result-url" style="color:#888; font-size:0.85rem;">${item.link}</span>
+                ${!isPdf ? `<div style="font-size:0.9rem; color:#555; margin-top:5px;">${item.snippet}</div>` : ''}
+            </div>
+            <div class="score-badge" id="score-${btoa(item.link).replace(/=/g,'')}">
+                <div style="font-size:0.7rem;">Score</div>
+                <span class="score-val">${item.score.toFixed(2)}</span>
+            </div>
+        `;
+        return div;
+    }
+
+    function updateScoreText(link, newScore) {
+        // 簡單更新分數文字
+        const id = 'score-' + btoa(link).replace(/=/g,'');
+        const badge = document.getElementById(id);
+        if (badge) {
+            badge.querySelector('.score-val').innerText = newScore.toFixed(2);
+            // 閃爍一下表示更新
+            badge.style.transform = 'scale(1.2)';
+            setTimeout(() => badge.style.transform = 'scale(1)', 200);
+        }
+    }
+
+    // --- FLIP 動畫核心邏輯 (柔和排名上升) ---
+    function animateReorder(container) {
+        const items = Array.from(container.children);
+        
+        // 1. First: 記錄所有元素現在的位置
+        const positions = new Map();
+        items.forEach(item => {
+            positions.set(item.getAttribute('data-link'), item.getBoundingClientRect().top);
+        });
+
+        // 2. 邏輯排序：根據 currentData 的最新分數重新排序 DOM
+        // 複製一份 currentData 進行排序
+        const sortedData = [...currentData].sort((a, b) => b.score - a.score);
+        
+        // 根據排序後的順序，將 DOM 元素重新 append (這會改變它們在畫面上的位置)
+        sortedData.forEach(dataItem => {
+            const domItem = items.find(el => el.getAttribute('data-link') === dataItem.link);
+            if (domItem) {
+                // 更新分數顯示
+                const scoreSpan = domItem.querySelector('.score-val');
+                if (scoreSpan) scoreSpan.innerText = dataItem.score.toFixed(2);
+                
+                container.appendChild(domItem); // 移動 DOM
+            }
+        });
+
+        // 3. Last & Invert: 計算位移並套用 transform
+        const newItems = Array.from(container.children);
+        newItems.forEach(item => {
+            const link = item.getAttribute('data-link');
+            const oldTop = positions.get(link);
+            const newTop = item.getBoundingClientRect().top;
+
+            // 如果位置有變
+            if (oldTop !== undefined && oldTop !== newTop) {
+                const diff = oldTop - newTop;
+                
+                // 暫時取消 transition，瞬間移動到舊位置 (Invert)
+                item.style.transition = 'none';
+                item.style.transform = `translateY(${diff}px)`;
+                
+                // 如果是往上移 (排名上升)，加上綠色閃爍效果
+                if (diff > 0) {
+                    item.classList.remove('rank-up');
+                    void item.offsetWidth; // 觸發 reflow
+                    item.classList.add('rank-up');
+                }
+            }
+        });
+
+        // 4. Play: 移除 transform，讓瀏覽器用 transition 動畫回到新位置
+        // 使用 requestAnimationFrame 確保在下一幀執行
+        requestAnimationFrame(() => {
+            newItems.forEach(item => {
+                item.style.transition = 'transform 0.5s ease'; // 設定動畫時間
+                item.style.transform = ''; // 移除 transform，元素會滑動到新位置
+            });
+        });
     }
     
     document.getElementById("apiInput").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") callGoogleApi();
+        if (e.key === "Enter") startSearch();
     });
 </script>
 </body>

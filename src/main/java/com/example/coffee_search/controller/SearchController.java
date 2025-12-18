@@ -4,8 +4,8 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -13,11 +13,12 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.coffee_search.model.GeminiAnalysisResult;
@@ -49,157 +50,149 @@ public class SearchController {
     @ResponseBody
     public List<Keyword> getKeywords() { return keywordRepository.findAll(); }
 
-    @PostMapping("/api/coffee_search")
-    @ResponseBody
-    public Map<String, Object> searchCoffee(
+    /**
+     * [SSE 串流搜尋接口]
+     * 回傳 SseEmitter，讓瀏覽器保持連線，接收即時更新
+     */
+    @GetMapping(value = "/api/stream-search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamSearch(
             @RequestParam("apiInput") String userQuery,
-            @RequestParam(value = "searchType", defaultValue = "web") String searchType) { // 新增參數
-        
-        List<SearchResult> rawResults = new ArrayList<>();
-        if (userQuery == null || userQuery.trim().isEmpty()) return new HashMap<>();
+            @RequestParam(value = "searchType", defaultValue = "web") String searchType) {
 
-        try {
-            System.out.println("[Start] Query: " + userQuery + " | Type: " + searchType);
+        // 設定超時時間為 2 分鐘 (足夠爬蟲跑完)
+        SseEmitter emitter = new SseEmitter(120_000L);
 
-            // 1. Gemini 分析 (語言偵測 + 翻譯)
-            GeminiAnalysisResult analysis = geminiService.analyzeQuery(userQuery);
-            String detectedLang = analysis.language();
-            String finalSearchQuery = analysis.query();
-            
-            // 2. 決定關鍵字表與後綴
-            String targetLangForKeywords = "en";
-            if ("zh".equals(detectedLang)) {
-                targetLangForKeywords = "zh";
-                if (!finalSearchQuery.contains("咖啡")) finalSearchQuery += " 咖啡";
-            } else if ("ja".equals(detectedLang)) {
-                targetLangForKeywords = "ja";
-                if (!finalSearchQuery.contains("コーヒー")) finalSearchQuery += " コーヒー";
-            } else {
-                targetLangForKeywords = "en";
-                if (!finalSearchQuery.toLowerCase().contains("coffee")) finalSearchQuery += " coffee";
-            }
-
-            // 3. 呼叫 Google API (根據 searchType 調整參數)
-            String q = URLEncoder.encode(finalSearchQuery, StandardCharsets.UTF_8);
-            RestTemplate restTemplate = new RestTemplate();
-            ObjectMapper mapper = new ObjectMapper();
-
-            for (int i = 0; i < 2; i++) {
-                int start = 1 + (i * 10);
-                StringBuilder urlBuilder = new StringBuilder("https://www.googleapis.com/customsearch/v1?");
-                urlBuilder.append("key=").append(apiKey);
-                urlBuilder.append("&cx=").append(cx);
-                urlBuilder.append("&num=10");
-                urlBuilder.append("&q=").append(q);
-                urlBuilder.append("&start=").append(start);
-
-                // [分流邏輯]
-                if ("image".equals(searchType)) {
-                    urlBuilder.append("&searchType=image");
-                } else if ("pdf".equals(searchType)) {
-                    urlBuilder.append("&fileType=pdf");
+        // 開啟一個背景執行緒來處理搜尋，讓 Controller 可以立刻回傳 emitter
+        CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("🚀 [SSE] 啟動串流搜尋: " + userQuery);
+                
+                // 1. Gemini 分析
+                GeminiAnalysisResult analysis = geminiService.analyzeQuery(userQuery);
+                String finalSearchQuery = analysis.query();
+                String detectedLang = analysis.language();
+                
+                // 決定關鍵字
+                String targetLangForKeywords = "en";
+                if ("zh".equals(detectedLang)) {
+                    targetLangForKeywords = "zh";
+                    if (!finalSearchQuery.contains("咖啡")) finalSearchQuery += " 咖啡";
+                } else if ("ja".equals(detectedLang)) {
+                    targetLangForKeywords = "ja";
+                    if (!finalSearchQuery.contains("コーヒー")) finalSearchQuery += " コーヒー";
+                } else {
+                    if (!finalSearchQuery.toLowerCase().contains("coffee")) finalSearchQuery += " coffee";
                 }
 
-                URI uri = URI.create(urlBuilder.toString());
-                
-                try {
-                    String jsonResp = restTemplate.getForObject(uri, String.class);
-                    Map<String, Object> body = mapper.readValue(jsonResp, Map.class);
-                    
-                    if (body != null && body.containsKey("items")) {
-                        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
-                        for (Map<String, Object> item : items) {
-                            String link = (String) item.get("link");
-                            String title = (String) item.get("title");
-                            String snippet = (String) item.get("snippet");
+                // 2. Google API 呼叫
+                String q = URLEncoder.encode(finalSearchQuery, StandardCharsets.UTF_8);
+                RestTemplate restTemplate = new RestTemplate();
+                ObjectMapper mapper = new ObjectMapper();
+                List<SearchResult> rawResults = new ArrayList<>();
 
-                            // 處理圖片特殊欄位
-                            String thumbnailLink = null;
-                            if ("image".equals(searchType) && item.containsKey("image")) {
-                                Map<String, Object> imgData = (Map<String, Object>) item.get("image");
-                                thumbnailLink = (String) imgData.get("thumbnailLink");
-                            }
+                for (int i = 0; i < 2; i++) {
+                    int start = 1 + (i * 10);
+                    StringBuilder urlBuilder = new StringBuilder("https://www.googleapis.com/customsearch/v1?");
+                    urlBuilder.append("key=").append(apiKey).append("&cx=").append(cx)
+                              .append("&num=10").append("&q=").append(q).append("&start=").append(start);
 
-                            if (link != null && (link.contains("android.googlesource") || link.contains("github.com"))) continue;
+                    if ("image".equals(searchType)) urlBuilder.append("&searchType=image");
+                    else if ("pdf".equals(searchType)) urlBuilder.append("&fileType=pdf");
 
-                            if (link != null) {
-                                if ("image".equals(searchType)) {
-                                    // 圖片直接回傳，不計分
-                                    rawResults.add(new SearchResult(title, link, thumbnailLink));
-                                } else {
-                                    // Web 或 PDF 初始分數
-                                    rawResults.add(new SearchResult(title, link, snippet != null ? snippet : "", 50.0));
+                    URI uri = URI.create(urlBuilder.toString());
+                    try {
+                        String jsonResp = restTemplate.getForObject(uri, String.class);
+                        Map<String, Object> body = mapper.readValue(jsonResp, Map.class);
+                        if (body != null && body.containsKey("items")) {
+                            List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
+                            for (Map<String, Object> item : items) {
+                                String link = (String) item.get("link");
+                                String title = (String) item.get("title");
+                                String snippet = (String) item.get("snippet");
+                                String thumbnail = null;
+                                
+                                if ("image".equals(searchType) && item.containsKey("image")) {
+                                    Map<String, Object> imgData = (Map<String, Object>) item.get("image");
+                                    thumbnail = (String) imgData.get("thumbnailLink");
+                                }
+
+                                if (link != null && (link.contains("android.googlesource") || link.contains("github.com"))) continue;
+
+                                if (link != null) {
+                                    if ("image".equals(searchType)) {
+                                        rawResults.add(new SearchResult(title, link, thumbnail));
+                                    } else {
+                                        rawResults.add(new SearchResult(title, link, snippet != null ? snippet : "", 50.0));
+                                    }
                                 }
                             }
                         }
-                    }
-                } catch (Exception ex) {
-                    System.err.println("[GoogleAPI] Error: " + ex.getMessage());
+                    } catch (Exception e) { System.err.println("Google API Error: " + e.getMessage()); }
                 }
-            }
 
-            // [快速通道] 如果是圖片搜尋，直接回傳，不做爬蟲
-            if ("image".equals(searchType)) {
-                Map<String, Object> result = new LinkedHashMap<>();
-                result.put("type", "image");
-                result.put("data", rawResults);
-                return result;
-            }
-
-            // 準備關鍵字
-            List<Keyword> keywords = keywordRepository.findByLanguage(targetLangForKeywords);
-            if (keywords.isEmpty()) keywords = keywordRepository.findByLanguage("en");
-            final List<Keyword> finalKeywords = keywords;
-            BoyerMoore boyerMoore = new BoyerMoore();
-
-            // [分流通道] 如果是 PDF，只做簡單計分 (不爬蟲，因為 Jsoup 爬不了 PDF)
-            if ("pdf".equals(searchType)) {
-                System.out.println("🚀 處理 PDF 計分 (僅標題/摘要)...");
-                for (SearchResult res : rawResults) {
-                    String contentToCheck = (res.getTitle() + " " + res.getSnippet()).toLowerCase();
-                    for (Keyword k : finalKeywords) {
-                        String pattern = k.getSearchTerm().toLowerCase();
-                        int count = 0, idx = 0;
-                        while ((idx = boyerMoore.search(contentToCheck, pattern, idx)) != -1) {
-                            count++; idx += pattern.length();
-                        }
-                        if (count > 0) res.setScore(res.getScore() + (k.getWeight() * count));
-                    }
+                if (rawResults.isEmpty()) {
+                    emitter.send(SseEmitter.event().name("error").data("找不到相關結果"));
+                    emitter.complete();
+                    return;
                 }
-            } 
-            // [標準通道] 如果是 Web，執行完整爬蟲與深度排序
-            else {
-                System.out.println("🚀 啟動完整 Web 爬蟲與深度排序...");
-                // 1. 主頁面爬蟲
+
+                // [SSE 事件 1] init: 傳送初步名單給前端渲染 (此時還沒爬蟲)
+                emitter.send(SseEmitter.event().name("init").data(rawResults));
+
+                // 如果是圖片或PDF，不做深度爬蟲，直接結束
+                if ("image".equals(searchType) || "pdf".equals(searchType)) {
+                    emitter.send(SseEmitter.event().name("complete").data("done"));
+                    emitter.complete();
+                    return;
+                }
+
+                // 3. 執行爬蟲與計分
+                List<Keyword> keywords = keywordRepository.findByLanguage(targetLangForKeywords);
+                if (keywords.isEmpty()) keywords = keywordRepository.findByLanguage("en");
+                final List<Keyword> finalKeywords = keywords;
+                BoyerMoore boyerMoore = new BoyerMoore();
+
+                // 使用 CompletableFuture 並行爬取
                 List<CompletableFuture<Void>> futures = rawResults.stream()
-                    .map(res -> scoringService.scorePageAsync(res, finalKeywords, boyerMoore))
+                    .map(res -> scoringService.scorePageAsync(res, finalKeywords, boyerMoore)
+                        .thenRun(() -> {
+                            // [SSE 事件 2] update: 每爬完一個網頁，推送更新後的分數
+                            try {
+                                synchronized (emitter) {
+                                    // 傳送：連結 + 新分數
+                                    Map<String, Object> updateData = new HashMap<>();
+                                    updateData.put("link", res.getLink());
+                                    updateData.put("score", res.getScore());
+                                    emitter.send(SseEmitter.event().name("update").data(updateData));
+                                }
+                            } catch (Exception e) {
+                                // 忽略傳送失敗 (可能是前端斷線)
+                            }
+                        }))
                     .collect(Collectors.toList());
+
+                // 等待所有主頁面爬蟲完成
                 CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-                // 2. 深度排序
-                rawResults = deepRankingService.deepRankAsync(rawResults, targetLangForKeywords);
+                // 4. 深度排序 (Deep Ranking)
+                // 這裡我們不即時推送子頁面分數，以免太過頻繁，而是一次性做完後推送最終結果
+                List<SearchResult> finalResults = deepRankingService.deepRankAsync(rawResults, targetLangForKeywords);
+
+                // [SSE 事件 3] final: 推送最終排序結果
+                emitter.send(SseEmitter.event().name("final").data(finalResults));
+                
+                // 結束連線
+                emitter.complete();
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                try {
+                    emitter.send(SseEmitter.event().name("error").data("系統發生錯誤: " + ex.getMessage()));
+                    emitter.completeWithError(ex);
+                } catch (Exception e) {}
             }
+        });
 
-            // 排序與輸出
-            HeapSorter sorter = new HeapSorter();
-            for (SearchResult result : rawResults) {
-                sorter.insert(result);
-            }
-
-            // 為了前端好處理，回傳結構化資料
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("type", searchType);
-            
-            // 轉成 List 方便前端處理 (Map 會打亂順序，這裡建議改用 List 回傳給前端，但為了相容舊邏輯，我們包裝一下)
-            // 這裡我將 SearchResult 物件直接回傳，這樣前端可以拿到 title, snippet, score
-            List<SearchResult> sortedList = sorter.getSortedList();
-            response.put("data", sortedList);
-
-            return response;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new HashMap<>();
-        }
+        return emitter;
     }
 }
